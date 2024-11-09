@@ -1,0 +1,24 @@
+services:
+  web:
+    build: ./flask_app
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - db
+    networks:
+      - webnet
+    volumes:
+      - ./flask_app:/app
+
+  db:
+    build: ./db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - webnet
+    restart: always
+
+networks:
+  webnet:
+    driver: bridge

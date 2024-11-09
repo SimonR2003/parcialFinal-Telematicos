@@ -1,0 +1,44 @@
+se instala gunicorn para correr la app en flask en un entorno de produccion (con WSGI):
+   sudo pip install gunicorn
+Tambien lo añadi en el script.sh, pa no tener que hacerlo a mano en el futuro.
+
+
+el comando para correr la app es entonces:
+    cd /home/vagrant/webapp
+    gunicorn -b 0.0.0.0:5000 run:app
+
+cree los certificados con OpenSSL:
+
+    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/nginx-selfsigned.key -out /etc/ssl/certs/nginx-selfsigned.crt
+
+modifique el sites-available de nginx para que use los certificados y mande las requests del 443 al 5000, donde esta el gunicorn corriendo. Tambien manda las del 80 al 443.
+
+Se crea el symbolic link entre sites-available y sites-enabled:
+
+    sudo ln -s /etc/nginx/sites-available/your_config_file /etc/nginx/sites-enabled/
+
+Se prueba con sudo nginx -t y luego se reinicia nginx.
+
+Aqui ya esta funcionando el servidor de nginx con SSL, ahora a contenerizar.
+
+1. crear el requirements.txt para el contenedor y mandarlo a la carpeta donde creare la imagen:
+    pip freeze > requirements.txt
+    mv requirements.txt /home/vagrant/Sync/webapp
+
+2. crear el dockerfile, definir la imagen, los archivos a copiar y los procesos a correr.
+    Hay que usar un supervisor para poder correr nginx y gunicorn al mismo tiempo, ademas hay que crear un contenedor aparte para la bd
+
+3. crear dockerfile para la bd, mandando el init.sql a /docker-entrypoint-initdb.d/, todo script en esa ruta se corre durante la inicializacion del contenedor
+    Se que puede hacerse con un volumen, pero es conveniente para la subida a un EC2 el no utilizar volumenes.
+
+4. crear un docker compose para buildear ambas imagenes y inicializar el servicio 
+    El docker compose en la carpeta Sync es el que usa los recursos locales.
+    Tambien modifique el archivo de config.py para que la webapp apunte al contenedor con la base de datos "db".
+
+5. Por ultimo, pushee ambas imagenes a docker hub, y cree en Sync una carpeta llamada EC2, 
+    ahi puse otro docker-compose que usa las imagenes desde dockerhub para usarlo cuando creemos el EC2.  
+
+
+
+
+

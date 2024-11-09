@@ -1,0 +1,22 @@
+services:
+  web:
+    image: simonr2003/webapp:v1 
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - db
+    networks:
+      - webnet
+
+  db:
+    image: simonr2003/webapp-db:v1
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - webnet
+    restart: always
+
+networks:
+  webnet:
+    driver: bridge

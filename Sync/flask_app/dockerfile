@@ -1,0 +1,41 @@
+# Comenzamos desde una imagen con python
+FROM python:3
+
+# Instalamos un supervisor para correr el gunicorn 
+RUN apt update && apt install -y nginx supervisor
+
+# Install necessary dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    pkg-config \
+    default-libmysqlclient-dev \
+    default-mysql-client
+
+# default-libmysqlclient-dev build-essential pkg-config mysql-client
+
+# Set up working directory and copy app files
+WORKDIR /webapp
+COPY webapp/ /webapp/
+
+COPY requirements.txt /webapp
+# Install Python dependencies
+RUN pip install -r requirements.txt
+
+# Copy Nginx config
+COPY flask_app.conf /etc/nginx/sites-available/
+COPY nginx-selfsigned.crt /etc/ssl/certs/nginx-selfsigned.crt
+COPY nginx-selfsigned.key /etc/ssl/private/nginx-selfsigned.key
+
+# Ensure that the sites-enabled directory exists and create the symbolic link
+RUN mkdir -p /etc/nginx/sites-enabled && ln -s /etc/nginx/sites-available/flask_app.conf /etc/nginx/sites-enabled/
+
+# Supervisor configuration
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Exponer puertos para entrada ssl y redireccion 
+EXPOSE 443
+EXPOSE 80
+
+# Start Supervisor
+CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
