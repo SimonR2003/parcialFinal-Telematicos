@@ -11,6 +11,6 @@ vagrant ssh servidorWeb
 
 ```
 cd /home/vagrant/webapp
-export FLASK_APP=run.py
-/usr/local/bin/flask run --host=0.0.0.0
+gunicorn -b 0.0.0.0:5000 run:app
+
 ```
