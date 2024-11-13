@@ -83,7 +83,7 @@ pip install gunicorn
 
 PROMETHEUS_VERSION="2.41.0"  # Cambia esto a la ultima version estable
 NODE_EXPORTER_VERSION="1.5.0"  # Cambia esto a la ultima version estable
-
+GRAFANA_VERSION="10.0.0"
 # --- Actualizacion del sistema y descarga de herramientas basicas ---
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y wget tar
@@ -176,3 +176,83 @@ echo "Accede a Prometheus en http://localhost:9090 para ver las metricas."
 #cd /home/vagrant/webapp
 #export FLASK_APP=run.py
 #/usr/local/bin/flask run --host=0.0.0.0
+
+# Instalación de Grafana
+cd /tmp
+wget https://dl.grafana.com/enterprise/release/grafana-enterprise-$GRAFANA_VERSION.linux-amd64.tar.gz
+tar -zxvf grafana-enterprise-$GRAFANA_VERSION.linux-amd64.tar.gz
+sudo mv grafana-$GRAFANA_VERSION /usr/local/grafana
+
+# Configuración del servicio grafana.service
+sudo tee /etc/systemd/system/grafana.service > /dev/null <<EOF
+[Unit]
+Description=Grafana
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/local/grafana/bin/grafana-server --config=/usr/local/grafana/conf/defaults.ini --homepath=/usr/local/grafana
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Inicio y habilitación de Grafana
+sudo systemctl daemon-reload
+sudo systemctl start grafana
+sudo systemctl enable grafana
+
+# Configuración automatizada de Prometheus como fuente de datos en Grafana
+# Esto puede realizarse a través de la API HTTP de Grafana
+curl -X POST -H "Content-Type: application/json" -d '{
+  "name": "Prometheus",
+  "type": "prometheus",
+  "url": "http://localhost:9090",
+  "access": "proxy",
+  "isDefault": true
+}' http://admin:admin@localhost:3000/api/datasources
+
+# Crear un panel básico en Grafana utilizando la API de Grafana
+# Puedes usar la API para crear un dashboard simple que muestra el uso de CPU
+curl -X POST -H "Content-Type: application/json" -d '{
+  "dashboard": {
+    "id": null,
+    "uid": null,
+    "title": "Node Exporter Dashboard",
+    "tags": ["templated"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "type": "graph",
+        "title": "Uso de CPU",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "type": "gauge",
+        "title": "Espacio en disco disponible",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "node_filesystem_avail_bytes{mountpoint=\"/\"}",
+            "legendFormat": "{{mountpoint}} disponible",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}' http://admin:admin@localhost:3000/api/dashboards/db
